@@ -14,6 +14,312 @@
 #define MAX_CLIENTS 10
 #define BUFFER_SIZE 1024
 
+#define GROUP_SIZE 40 // Maximum number of consumers in a group
+#define MAX_GROUPS 10 
+
+#define MAX_MESSAGE_QUEUE_SIZE 10 // Maximum number of messages in the queue
+
+// Group structure to manage the consumers ------------------------------------------------
+typedef struct Group {
+    char name[255];
+    int socketConsumerList[GROUP_SIZE]; //store the socket's identifier of the consumers
+    int consumerCount; //counts the number of actual consumers, must be initialized to 0
+    int actualConsumerIndex; //index of the actual consumer that is going to receive the message
+} Group;
+
+Group* createGroup(char* name) { 
+    Group* group = (Group*)malloc(sizeof(Group));
+    strcpy(group->name, name);
+    group->consumerCount = 0;
+    group->actualConsumerIndex = 0;
+    return group;
+}
+
+void group_addConsumer(Group* group, int socket) {
+    group->socketConsumerList[group->consumerCount] = socket;
+    group->consumerCount++;
+}
+
+void group_sendMessage(Group* group, char* message) {
+    // Send the message to the actual consumer
+    int consumerSocket = group->socketConsumerList[group->actualConsumerIndex];
+    send(consumerSocket, message, strlen(message), 0);
+    group->actualConsumerIndex = (group->actualConsumerIndex + 1) % group->consumerCount;
+}
+//----------------------------------------------------------------------------------------
+// Array to store groups
+Group* groupList[MAX_GROUPS]; 
+
+// Adds a consumer to a group, creates the group if it doesn't exist
+void addConsumer(char* groupName, int socket) { 
+    for (int i = 0; i < MAX_GROUPS; i++) {
+        // if the group is empty, create it and add the consumer
+        if (groupList[i] == NULL) {
+            groupList[i] = createGroup(groupName);
+            group_addConsumer(groupList[i], socket);
+            return;
+        }
+        if (strcmp(groupList[i]->name, groupName) == 0) {
+            group_addConsumer(groupList[i], socket);
+            return;
+        }
+    }
+    printf("No more groups available\n");
+}
+
+void sendMessageToGroup(char* message) {
+    // Send the message to all groups
+    for (int i = 0; i < MAX_GROUPS; i++) {
+        if (groupList[i] != NULL) {
+            group_sendMessage(groupList[i], message);
+        }
+    }
+}
+//----------------------------------------------------------------------------------------
+// A queue to store messages, will follow de FIFO logic. At the same time, must use an offset, just in case there are more messagese coming than the queue dispatching time
+
+typedef struct MessageQueue {
+    char messages[MAX_MESSAGE_QUEUE_SIZE][BUFFER_SIZE];
+    int actualMessageIndex; // index of the actual message that is going to be sent
+    int addMessageIndex; // counts the number of messages in the queue
+} MessageQueue;
+
+MessageQueue* createMessageQueue() {
+    MessageQueue* queue = (MessageQueue*)malloc(sizeof(MessageQueue));
+    queue->actualMessageIndex = 0;
+    queue->addMessageIndex = 0;
+    return queue;
+}
+
+void enqueueMessage(MessageQueue* queue, char* message) {
+    if ((queue->addMessageIndex + 1) % MAX_MESSAGE_QUEUE_SIZE != queue->actualMessageIndex) {
+        strcpy(queue->messages[queue->addMessageIndex], message);
+        queue->addMessageIndex = (queue->addMessageIndex + 1) % MAX_MESSAGE_QUEUE_SIZE;
+    } else {
+        // Queue is full, handle the error (e.g., discard the message or wait)
+        printf("Message queue is full\n");
+    }
+}
+
+
+// -------------------------------------------------------------------------------
+// THREAD UNSAFE
+void sendMessageToGroups(MessageQueue* queue) {
+    if (queue->actualMessageIndex != queue->addMessageIndex) {
+        // Send the message to the group
+        sendMessageToGroup(queue->messages[queue->actualMessageIndex]);
+        queue->actualMessageIndex = (queue->actualMessageIndex + 1) % MAX_MESSAGE_QUEUE_SIZE;
+    } else {
+        printf("Message queue is empty\n");
+    }
+}
+// global variable to store the queue
+MessageQueue* messageQueue; 
+
+#define GROUP_SIZE 40 // Maximum number of consumers in a group
+#define MAX_GROUPS 10 
+
+#define MAX_MESSAGE_QUEUE_SIZE 10 // Maximum number of messages in the queue
+
+// Group structure to manage the consumers ------------------------------------------------
+typedef struct Group {
+    char name[255];
+    int socketConsumerList[GROUP_SIZE]; //store the socket's identifier of the consumers
+    int consumerCount; //counts the number of actual consumers, must be initialized to 0
+    int actualConsumerIndex; //index of the actual consumer that is going to receive the message
+} Group;
+
+Group* createGroup(char* name) { 
+    Group* group = (Group*)malloc(sizeof(Group));
+    strcpy(group->name, name);
+    group->consumerCount = 0;
+    group->actualConsumerIndex = 0;
+    return group;
+}
+
+void group_addConsumer(Group* group, int socket) {
+    group->socketConsumerList[group->consumerCount] = socket;
+    group->consumerCount++;
+}
+
+void group_sendMessage(Group* group, char* message) {
+    // Send the message to the actual consumer
+    int consumerSocket = group->socketConsumerList[group->actualConsumerIndex];
+    send(consumerSocket, message, strlen(message), 0);
+    group->actualConsumerIndex = (group->actualConsumerIndex + 1) % group->consumerCount;
+}
+//----------------------------------------------------------------------------------------
+// Array to store groups
+Group* groupList[MAX_GROUPS]; 
+
+// Adds a consumer to a group, creates the group if it doesn't exist
+void addConsumer(char* groupName, int socket) { 
+    for (int i = 0; i < MAX_GROUPS; i++) {
+        // if the group is empty, create it and add the consumer
+        if (groupList[i] == NULL) {
+            groupList[i] = createGroup(groupName);
+            group_addConsumer(groupList[i], socket);
+            return;
+        }
+        if (strcmp(groupList[i]->name, groupName) == 0) {
+            group_addConsumer(groupList[i], socket);
+            return;
+        }
+    }
+    printf("No more groups available\n");
+}
+
+void sendMessageToGroup(char* message) {
+    // Send the message to all groups
+    for (int i = 0; i < MAX_GROUPS; i++) {
+        if (groupList[i] != NULL) {
+            group_sendMessage(groupList[i], message);
+        }
+    }
+}
+//----------------------------------------------------------------------------------------
+// A queue to store messages, will follow de FIFO logic. At the same time, must use an offset, just in case there are more messagese coming than the queue dispatching time
+
+typedef struct MessageQueue {
+    char messages[MAX_MESSAGE_QUEUE_SIZE][BUFFER_SIZE];
+    int actualMessageIndex; // index of the actual message that is going to be sent
+    int addMessageIndex; // counts the number of messages in the queue
+} MessageQueue;
+
+MessageQueue* createMessageQueue() {
+    MessageQueue* queue = (MessageQueue*)malloc(sizeof(MessageQueue));
+    queue->actualMessageIndex = 0;
+    queue->addMessageIndex = 0;
+    return queue;
+}
+
+void enqueueMessage(MessageQueue* queue, char* message) {
+    if ((queue->addMessageIndex + 1) % MAX_MESSAGE_QUEUE_SIZE != queue->actualMessageIndex) {
+        strcpy(queue->messages[queue->addMessageIndex], message);
+        queue->addMessageIndex = (queue->addMessageIndex + 1) % MAX_MESSAGE_QUEUE_SIZE;
+    } else {
+        // Queue is full, handle the error (e.g., discard the message or wait)
+        printf("Message queue is full\n");
+    }
+}
+
+
+// -------------------------------------------------------------------------------
+// THREAD UNSAFE
+void sendMessageToGroups(MessageQueue* queue) {
+    if (queue->actualMessageIndex != queue->addMessageIndex) {
+        // Send the message to the group
+        sendMessageToGroup(queue->messages[queue->actualMessageIndex]);
+        queue->actualMessageIndex = (queue->actualMessageIndex + 1) % MAX_MESSAGE_QUEUE_SIZE;
+    } else {
+        printf("Message queue is empty\n");
+    }
+}
+// global variable to store the queue
+MessageQueue* messageQueue; 
+
+#define GROUP_SIZE 40 // Maximum number of consumers in a group
+#define MAX_GROUPS 10 
+
+#define MAX_MESSAGE_QUEUE_SIZE 10 // Maximum number of messages in the queue
+
+// Group structure to manage the consumers ------------------------------------------------
+typedef struct Group {
+    char name[255];
+    int socketConsumerList[GROUP_SIZE]; //store the socket's identifier of the consumers
+    int consumerCount; //counts the number of actual consumers, must be initialized to 0
+    int actualConsumerIndex; //index of the actual consumer that is going to receive the message
+} Group;
+
+Group* createGroup(char* name) { 
+    Group* group = (Group*)malloc(sizeof(Group));
+    strcpy(group->name, name);
+    group->consumerCount = 0;
+    group->actualConsumerIndex = 0;
+    return group;
+}
+
+void group_addConsumer(Group* group, int socket) {
+    group->socketConsumerList[group->consumerCount] = socket;
+    group->consumerCount++;
+}
+
+void group_sendMessage(Group* group, char* message) {
+    // Send the message to the actual consumer
+    int consumerSocket = group->socketConsumerList[group->actualConsumerIndex];
+    send(consumerSocket, message, strlen(message), 0);
+    group->actualConsumerIndex = (group->actualConsumerIndex + 1) % group->consumerCount;
+}
+//----------------------------------------------------------------------------------------
+// Array to store groups
+Group* groupList[MAX_GROUPS]; 
+
+// Adds a consumer to a group, creates the group if it doesn't exist
+void addConsumer(char* groupName, int socket) { 
+    for (int i = 0; i < MAX_GROUPS; i++) {
+        // if the group is empty, create it and add the consumer
+        if (groupList[i] == NULL) {
+            groupList[i] = createGroup(groupName);
+            group_addConsumer(groupList[i], socket);
+            return;
+        }
+        if (strcmp(groupList[i]->name, groupName) == 0) {
+            group_addConsumer(groupList[i], socket);
+            return;
+        }
+    }
+    printf("No more groups available\n");
+}
+
+void sendMessageToGroup(char* message) {
+    // Send the message to all groups
+    for (int i = 0; i < MAX_GROUPS; i++) {
+        if (groupList[i] != NULL) {
+            group_sendMessage(groupList[i], message);
+        }
+    }
+}
+//----------------------------------------------------------------------------------------
+// A queue to store messages, will follow de FIFO logic. At the same time, must use an offset, just in case there are more messagese coming than the queue dispatching time
+
+typedef struct MessageQueue {
+    char messages[MAX_MESSAGE_QUEUE_SIZE][BUFFER_SIZE];
+    int actualMessageIndex; // index of the actual message that is going to be sent
+    int addMessageIndex; // counts the number of messages in the queue
+} MessageQueue;
+
+MessageQueue* createMessageQueue() {
+    MessageQueue* queue = (MessageQueue*)malloc(sizeof(MessageQueue));
+    queue->actualMessageIndex = 0;
+    queue->addMessageIndex = 0;
+    return queue;
+}
+
+void enqueueMessage(MessageQueue* queue, char* message) {
+    if ((queue->addMessageIndex + 1) % MAX_MESSAGE_QUEUE_SIZE != queue->actualMessageIndex) {
+        strcpy(queue->messages[queue->addMessageIndex], message);
+        queue->addMessageIndex = (queue->addMessageIndex + 1) % MAX_MESSAGE_QUEUE_SIZE;
+    } else {
+        // Queue is full, handle the error (e.g., discard the message or wait)
+        printf("Message queue is full\n");
+    }
+}
+
+
+// -------------------------------------------------------------------------------
+// THREAD UNSAFE
+void sendMessageToGroups(MessageQueue* queue) {
+    if (queue->actualMessageIndex != queue->addMessageIndex) {
+        // Send the message to the group
+        sendMessageToGroup(queue->messages[queue->actualMessageIndex]);
+        queue->actualMessageIndex = (queue->actualMessageIndex + 1) % MAX_MESSAGE_QUEUE_SIZE;
+    } else {
+        printf("Message queue is empty\n");
+    }
+}
+// global variable to store the queue
+MessageQueue* messageQueue; 
+
 // executed per each client's thread that connects to the broke
 // socket_desc -> represents the client's socket
 void* handle_client(void* socket_desc) {
@@ -31,8 +337,10 @@ void* handle_client(void* socket_desc) {
         // if error then return 0
         if (len <= 0) break;
         printf("Broker recieved: %s", buffer);
-        // TODO
+        
         // CONSUMER GROUP LOGIC
+        // will take the buffer as the group name
+        // addConsumer(buffer, sock);
     }
     close(sock);
 
@@ -73,6 +381,8 @@ int main() {
 
         // creates thread with the handle_client function as an argument
         pthread_t t;
+        // TODO
+        // Need a handsake to identify the consumer or producer
         pthread_create(&t, NULL, handle_client, pclient);
 
         // releases resources use by the thread
