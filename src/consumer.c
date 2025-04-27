@@ -11,11 +11,10 @@
 
 int main(int argc, char* argv[]) {
     // verifies that both ip, port and consumer group are passed for execution
-    if (argc < 4) {
-        printf("Using: %s <ip_broker> <port> <group>\n", argv[0]);
+    if (argc < 3) {
+        printf("Using: %s <ip_broker> <port> \n", argv[0]);
         return 1;
     }
-
     int sock;
     struct sockaddr_in serv_addr;
     char buffer[BUFFER_SIZE];
@@ -30,11 +29,14 @@ int main(int argc, char* argv[]) {
     inet_pton(AF_INET, argv[1], &serv_addr.sin_addr);
 
     // tries to connect to the broker
-    connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
-    snprintf(buffer, BUFFER_SIZE, "[GROUP %s]\n", argv[3]);
-    send(sock, buffer, strlen(buffer), 0);
+    if (connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
+        perror("Connection failed"); // manejo de error en conexión
+        return 1;
+    }
 
-    printf("Consumer from group:  '%s'.\n", argv[3]);
+    // sends the handshake to identify as CONSUMER
+    snprintf(buffer, BUFFER_SIZE, "[CONSUMER]\n");
+    send(sock, buffer, strlen(buffer), 0);
 
     // recieves message
     while (1) {
