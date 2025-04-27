@@ -32,9 +32,18 @@ int main(int argc, char* argv[]) {
     // converts IP to binary
     inet_pton(AF_INET, argv[1], &serv_addr.sin_addr);
 
-    // connects to broker
-    connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
-    printf("Productor conectado. Escribe mensajes:\n");
+    // tries to connect to the broker
+    if (connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
+        perror("Connection failed"); // manejo de error en conexión
+        return 1;
+    }
+
+    // sends the handshake to identify as PRODUCER
+    snprintf(buffer, BUFFER_SIZE, "[PRODUCER]\n");
+    send(sock, buffer, strlen(buffer), 0);
+    
+
+    printf("Producer connected. Write messages: \n");
 
     // to write messages from standard input
     while (fgets(buffer, BUFFER_SIZE, stdin) != NULL) {
