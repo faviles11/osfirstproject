@@ -54,8 +54,13 @@ typedef struct Message {
 Message* head = NULL;
 Message* tail = NULL;
 
-// muxet to block concurrent access to the queue
+// mutex to block concurrent access to the queue
 pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+// mutex to block concurrent access to logging
+pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
+// offset for the log file
+int offset = 0; 
 
 // adds a message to the end of the queue
 void enqueue(const char* message) {
@@ -70,6 +75,17 @@ void enqueue(const char* message) {
         tail = node;                     
     }
     pthread_mutex_unlock(&queue_mutex);    
+
+    pthread_mutex_lock(&log_mutex); 
+    //add message to log file, also indexing it with the time
+    FILE* log_file = fopen("messages.log", "a");
+    if (log_file != NULL) {
+        fprintf(log_file, "[%d] %s", offset++, message); // log the message with offset
+        fclose(log_file);
+    } else {
+        perror("Failed to open log file");
+    }
+    pthread_mutex_unlock(&log_mutex);
 }
 
 // returns first message from the queue 

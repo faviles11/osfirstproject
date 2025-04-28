@@ -4,3 +4,4 @@ producer
 .broker
 .consumer   
 .producer
+*.log
