@@ -48,7 +48,7 @@ El objetivo es simular un flujo de mensajes de múltiples productores hacia múl
 ## 🕹️ Ejecución del sistema
 
 ### 🏗 Compilación
-Para compilar el proyecto, usa el siguiente comando:
+Para compilar el proyecto, se utiliza el siguiente comando:
 ```bash
 make
 ```
@@ -103,7 +103,7 @@ pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 2️⃣  Uso de sem_t para sincronización de consumidores
 
-Se emplea un semaforo (consumers_semaphore) para controlar el acceso a la lista de consumidores, evitando que múltiples hilos intenten modificar la lista al mismo tiempo.
+Se emplea un semáforo (consumers_semaphore) para controlar el acceso a la lista de consumidores, evitando que múltiples hilos intenten modificar la lista al mismo tiempo.
 
 ```bash
 
@@ -147,11 +147,9 @@ Makefile: automatiza la compilación.
 
 ⚠️ Limitaciones
 
-No se implementa el reenvío selectivo por topic.
-
 No hay gestión de múltiples particiones ni replicación.
 
-Falta una interfaz para cambiar dinámicamente configuraciones del broker.
+Una interfaz para cambiar dinámicamente configuraciones del broker.
 
 7️⃣ Estructura del Repositorio
 
